@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sambung Wallet Agen Synmerco</title>
+<style>
+body { font-family: sans-serif; background: #111; color: #eee; margin: 0; padding: 20px; }
+h1 { font-size: 20px; }
+p { line-height: 1.5; }
+button { display: block; width: 100%; padding: 16px; margin: 12px 0; font-size: 17px; border: none; border-radius: 10px; background: #2fbf8f; color: #fff; }
+button:disabled { background: #555; color: #bbb; }
+pre { background: #222; padding: 12px; border-radius: 8px; word-break: break-all; white-space: pre-wrap; font-size: 13px; }
+.warn { color: #ffcc00; }
+.ok { color: #2fbf8f; }
+</style>
+</head>
+<body>
+<h1>Sambung Wallet Agen "Yua mikami"</h1>
+<p>Halaman ini cuma minta <b>satu tanda tangan gratis</b> (tanpa gas) dari MetaMask untuk menautkan wallet <b>0x5Be3...23F7</b> sebagai wallet payout agen Yua mikami di Synmerco.</p>
+<button id="connect">1. Sambungkan MetaMask</button>
+<p id="account">Belum tersambung.</p>
+<button id="sign" disabled>2. Tanda tangan (gratis)</button>
+<p id="status"></p>
+<pre id="result" style="display:none"></pre>
+<button id="copy" disabled>Salin tanda tangan</button>
+<p>Kirim tanda tangan yang sudah disalin ke Yua di WhatsApp. Tanda tangan ini cuma berlaku sekali untuk menautkan wallet ini ke agen ini.</p>
+<script>
+var NONCE = "8542c991a30d425b99eec4a52e74c748";
+var AGENT_DID = "did:key:z6Mkp7xx4t1LSTZV287w6qbDtapjkVRGxxs3ZJJyGnjiKQUj";
+var EXPECTED = "0x5be36211dd41408f7e2c12f37e8c4a480bac23f7";
+var account = null;
+var signature = null;
+
+function typedData(wallet) {
+  return {
+    domain: { name: "Synmerco", version: "1", chainId: 8453 },
+    types: {
+      EIP712Domain: [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "chainId", type: "uint256" }
+      ],
+      WalletLink: [
+        { name: "statement", type: "string" },
+        { name: "agentDid", type: "string" },
+        { name: "wallet", type: "address" },
+        { name: "nonce", type: "string" }
+      ]
+    },
+    primaryType: "WalletLink",
+    message: {
+      statement: "Link this wallet to receive Synmerco payouts for this agent. Sign only if you run this agent.",
+      agentDid: AGENT_DID,
+      wallet: wallet,
+      nonce: NONCE
+    }
+  };
+}
+
+document.getElementById("connect").onclick = async function() {
+  var acc = document.getElementById("account");
+  var signBtn = document.getElementById("sign");
+  if (!window.ethereum) { acc.textContent = "MetaMask tidak ketemu di browser ini. Buka halaman ini dari Mises dengan extension MetaMask aktif."; acc.className = "warn"; return; }
+  try {
+    var accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    account = accounts[0];
+    acc.textContent = "Tersambung: " + account;
+    if (account.toLowerCase() !== EXPECTED.toLowerCase()) {
+      acc.textContent += " — BUKAN wallet 0x5Be3...23F7. Ganti dulu ke Account 1 di MetaMask, terus sambungkan lagi.";
+      acc.className = "warn";
+      signBtn.disabled = true;
+    } else {
+      acc.className = "ok";
+      signBtn.disabled = false;
+    }
+  } catch (e) {
+    acc.textContent = "Gagal tersambung: " + (e && e.message ? e.message : e);
+    acc.className = "warn";
+  }
+};
+
+document.getElementById("sign").onclick = async function() {
+  var st = document.getElementById("status");
+  var res = document.getElementById("result");
+  var copyBtn = document.getElementById("copy");
+  if (!account) return;
+  try {
+    st.textContent = "Minta tanda tangan di MetaMask... (approve di popup MetaMask)";
+    var sig = await window.ethereum.request({
+      method: "eth_signTypedData_v4",
+      params: [account, JSON.stringify(typedData(account))]
+    });
+    signature = sig;
+    res.style.display = "block";
+    res.textContent = sig;
+    copyBtn.disabled = false;
+    st.textContent = "Berhasil! Salin tanda tangan di atas, terus kirim ke Yua di WhatsApp.";
+    st.className = "ok";
+  } catch (e) {
+    st.textContent = "Tanda tangan gagal/dibatalkan: " + (e && e.message ? e.message : e);
+    st.className = "warn";
+  }
+};
+
+document.getElementById("copy").onclick = async function() {
+  if (!signature) return;
+  try { await navigator.clipboard.writeText(signature); this.textContent = "Disalin!"; }
+  catch (e) { this.textContent = "Salin manual dari kotak di atas"; }
+};
+</script>
+</body>
+</html>
